@@ -1,0 +1,1 @@
+rsync -a --exclude "node_modules" . root@tracking.pymnts.com:/home/tracking/

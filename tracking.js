@@ -47,6 +47,23 @@ const getDatabases = async () => {
     console.log('databases', databases);
 }
 
+const createTable = async (table) => {
+    const q = `CREATE TABLE ${table} (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id VARCHAR(128) NOT NULL,
+        path VARCHAR(512) NOT NULL,
+        ts DATETIME DEFAULT CURRENT_TIMESTAMP,
+        index (user_id),
+        index (path)
+    )`;
+
+    const r = await query(q);
+
+    console.log(r);
+}
+
+createTable('test_table');
+
 getDatabases();
 
 const handlePageVisit = async (req, res) => {

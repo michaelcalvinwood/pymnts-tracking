@@ -16,7 +16,7 @@ app.use(express.json({limit: '200mb'}));
 app.use(cors());
 
 const mysqlOptions = {
-    connectionLimit : 5, //important
+    connectionLimit : 10, //important
     host     : process.env.MYSQL_HOST,
     user     : process.env.MYSQL_USER,
     password : process.env.MYSQL_PASSWORD,
@@ -32,7 +32,7 @@ const query = (query) => {
     return new Promise ((resolve, reject) => {
       pool.query(query,(err, data) => {
         if(err) {
-            console.error(err);
+            if (err.errno !== 1146) console.error(err.errno, err.sqlMessage);
             return resolve(false);
         }
         
@@ -44,7 +44,7 @@ const query = (query) => {
 const getDatabases = async () => {
     const databases = await query('SHOW DATABASES');
 
-    console.log('databases', databases);
+    return databases;
 }
 
 const createTable = async (table) => {
@@ -58,27 +58,41 @@ const createTable = async (table) => {
     )`;
 
     const r = await query(q);
-
-    console.log(r);
 }
 
 const getTableName = url => {
-    if (url === '/') return 'home';
+    let tableName = 'home';
+    if (url === '/') return tableName;
     if (url.startsWith('/')) url = url.substring(1);
     const parts = url.split('/');
-    if (parts.length < 2) return 'home';
-    if (parts.length === 2) return parts[0];
-    return parts[0] + "_" + parts[1];
+
+    if (parts.length < 2) tableName = 'home';
+    else if (parts.length === 2) tableName = parts[0];
+    else tableName = parts[0] + "_" + parts[1];
+
+    return tableName.replaceAll('-', '_').substring(0, 64);
 }
 
+const insertEntry = async (userId, path) => {
+    const table = getTableName(path);
+    const q = `INSERT INTO ${table} (user_id, path) VALUES ('${userId}', ${mysql.escape(path.substring(0, 500))})`;
+    let r = await query(q);
+    if (r !== false) return;
 
-getDatabases();
+    await createTable(table);
+    r = await query(q);
+    if (r === false) return;
+
+    console.log('INSERTED', path, userId);
+}
 
 const handlePageVisit = async (req, res) => {
     const { path, pymntsDeviceAuth } = req.body;
+    if (!path || !pymntsDeviceAuth) return;
+
     const table = getTableName(path);
 
-    console.log(table, path, pymntsDeviceAuth);
+    insertEntry(pymntsDeviceAuth, path);
 }
 
 app.post('/pageVisit', (req, res) => handlePageVisit(req, res));

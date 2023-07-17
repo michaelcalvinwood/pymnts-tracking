@@ -62,13 +62,23 @@ const createTable = async (table) => {
     console.log(r);
 }
 
-createTable('test_table');
+const getTableName = url => {
+    if (url === '/') return 'home';
+    if (url.startsWith('/')) url = url.substring(1);
+    const parts = url.split('/');
+    if (parts.length < 2) return 'home';
+    if (parts.length === 2) return parts[0];
+    return parts[0] + "_" + parts[1];
+}
+
 
 getDatabases();
 
 const handlePageVisit = async (req, res) => {
     const { path, pymntsDeviceAuth } = req.body;
-    console.log(path, pymntsDeviceAuth);
+    const table = getTableName(path);
+
+    console.log(table, path, pymntsDeviceAuth);
 }
 
 app.post('/pageVisit', (req, res) => handlePageVisit(req, res));

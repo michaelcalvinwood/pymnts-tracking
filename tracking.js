@@ -24,6 +24,8 @@ const mysqlOptions = {
     debug    :  false
 }
 
+let numPending = 0;
+
 console.log(mysqlOptions);
 
 const pool = mysql.createPool(mysqlOptions);
@@ -32,7 +34,7 @@ const query = (query) => {
     return new Promise ((resolve, reject) => {
       pool.query(query,(err, data) => {
         if(err) {
-            if (err.errno !== 1146) console.error(err.errno, err.sqlMessage);
+            if (err.errno !== 1146) console.error(err);
             return resolve(false);
         }
         
@@ -77,22 +79,27 @@ const insertEntry = async (userId, path) => {
     const table = getTableName(path);
     const q = `INSERT INTO ${table} (user_id, path) VALUES ('${userId}', ${mysql.escape(path.substring(0, 500))})`;
     let r = await query(q);
-    if (r !== false) return;
-
+    if (r !== false) {
+        --numPending;
+        console.log('n', numPending);
+       // console.log('INSERTED', path, userId);
+        return;
+    }
     await createTable(table);
     r = await query(q);
     if (r === false) return;
-
-    console.log('INSERTED', path, userId);
+    --numPending;
+    console.log('n', numPending);
+    //console.log('INSERTED', path, userId);
 }
 
 const handlePageVisit = async (req, res) => {
     const { path, pymntsDeviceAuth } = req.body;
     if (!path || !pymntsDeviceAuth) return;
-
-    const table = getTableName(path);
-
     insertEntry(pymntsDeviceAuth, path);
+    ++numPending;
+    console.log('n', numPending);
+    res.status(200).send('ok');
 }
 
 app.post('/pageVisit', (req, res) => handlePageVisit(req, res));
@@ -112,3 +119,4 @@ const httpsServer = https.createServer({
 });
 
 
+console.log('version 001');
